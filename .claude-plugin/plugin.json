@@ -1,0 +1,18 @@
+{
+  "name": "turkish-diacritics",
+  "description": "Automated Turkish diacritics validator for content files. Catches missing ç, ğ, ı, ö, ş, ü characters using hunspell-based multi-layer detection.",
+  "version": "1.0.0",
+  "author": {
+    "name": "ceaksan"
+  },
+  "repository": "https://github.com/ceaksan/turkish-diacritics",
+  "license": "MIT",
+  "keywords": [
+    "turkish",
+    "diacritics",
+    "content-quality",
+    "i18n",
+    "spell-check",
+    "hunspell"
+  ]
+}

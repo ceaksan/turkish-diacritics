@@ -64,14 +64,6 @@ Add the marketplace and install:
 /plugin install turkish-diacritics
 ```
 
-### Local Development
-
-Test locally before publishing:
-
-```bash
-claude --plugin-dir ./turkish-diacritics
-```
-
 ## Configuration
 
 Configuration via environment variables:

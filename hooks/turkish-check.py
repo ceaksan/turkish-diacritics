@@ -16,6 +16,7 @@ Exit 0 = pass, Exit 2 = errors found (feedback to Claude via stderr).
 Configuration (environment variables):
   TURKISH_CHECK_FILES  - Comma-separated basenames to check (default: tr.mdx,tr.md)
   TURKISH_CHECK_LANG   - Hunspell dictionary language (default: tr_TR)
+  TURKISH_CHECK_GLOBAL - Set to '1' for global mode: checks any .md/.mdx file
 """
 
 import json
@@ -281,9 +282,15 @@ def main():
     if not file_path:
         sys.exit(0)
 
-    basename = os.path.basename(file_path)
-    if basename not in CHECK_FILES:
-        sys.exit(0)
+    # Global mode: check any .md/.mdx file; Plugin mode: check only CHECK_FILES basenames
+    global_mode = os.environ.get("TURKISH_CHECK_GLOBAL", "").strip() in ("1", "true")
+    if global_mode:
+        if not file_path.endswith((".md", ".mdx")):
+            sys.exit(0)
+    else:
+        basename = os.path.basename(file_path)
+        if basename not in CHECK_FILES:
+            sys.exit(0)
 
     if not os.path.isfile(file_path):
         sys.exit(0)

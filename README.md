@@ -1,6 +1,6 @@
 # turkish-diacritics
 
-Claude Code plugin that automatically validates Turkish diacritics in content files. Catches missing **ç, ğ, ı, ö, ş, ü** characters using hunspell-based multi-layer detection with zero token cost.
+Claude Code plugin and global hook that automatically validates Turkish diacritics in content files. Catches missing **ç, ğ, ı, ö, ş, ü** characters using hunspell-based multi-layer detection with zero token cost.
 
 ## Problem
 
@@ -15,7 +15,7 @@ This plugin adds a deterministic quality gate that runs after every file edit, p
 
 ## How It Works
 
-The plugin runs as a `PostToolUse` hook after every `Edit` or `Write` operation. If the edited file is a Turkish content file (default: `tr.mdx`, `tr.md`), it validates diacritics using a 4-layer detection system:
+The plugin runs as a `PostToolUse` hook after every `Edit` or `Write` operation. If the edited file is a markdown file (`.md`, `.mdx` in global mode; `tr.mdx`, `tr.md` in plugin mode), it validates diacritics using a 4-layer detection system:
 
 | Layer   | Method                                | Confidence | What It Catches            |
 | ------- | ------------------------------------- | ---------- | -------------------------- |
@@ -55,7 +55,7 @@ If `tr_TR` dictionary is not found, download from [tdd-ai/hunspell-tr](https://g
 
 ## Installation
 
-### From GitHub (recommended)
+### As Claude Code Plugin (project-level)
 
 Add the marketplace and install:
 
@@ -64,20 +64,38 @@ Add the marketplace and install:
 /plugin install turkish-diacritics
 ```
 
-## Configuration
+Plugin mode checks only `tr.mdx` and `tr.md` files by default.
 
-Configuration via environment variables:
+### As Global Hook (all projects)
 
-| Variable              | Default        | Description                             |
-| --------------------- | -------------- | --------------------------------------- |
-| `TURKISH_CHECK_FILES` | `tr.mdx,tr.md` | Comma-separated file basenames to check |
-| `TURKISH_CHECK_LANG`  | `tr_TR`        | hunspell dictionary language            |
-
-Example: check all Turkish markdown files:
+Copy the hook and dictionaries to your global Claude Code directory:
 
 ```bash
-export TURKISH_CHECK_FILES="tr.mdx,tr.md,turkish.md"
+mkdir -p ~/.claude/hooks/dicts
+cp hooks/turkish-check.py ~/.claude/hooks/turkish-check.py
+cp hooks/dicts/* ~/.claude/hooks/dicts/
 ```
+
+Add the hook to `~/.claude/settings.json` under the PostToolUse matcher for Edit|Write:
+
+```json
+{
+  "type": "command",
+  "command": "TURKISH_CHECK_GLOBAL=1 python3 ~/.claude/hooks/turkish-check.py",
+  "statusMessage": "Checking Turkish characters..."
+}
+```
+
+Global mode checks all `.md` and `.mdx` files across every project.
+
+## Modes
+
+| Mode             | File Filter            | Scope          | Install Method                    |
+| ---------------- | ---------------------- | -------------- | --------------------------------- |
+| Plugin (default) | `tr.mdx`, `tr.md` only | Single project | `/plugin install`                 |
+| Global hook      | Any `.md` or `.mdx`    | All projects   | Manual copy to `~/.claude/hooks/` |
+
+In global mode, non-Turkish files pass through cleanly since hunspell only flags words that should have Turkish diacritics.
 
 ## What Gets Checked
 
@@ -158,7 +176,7 @@ PostToolUse Hook (stdin JSON)
         |
         v
 turkish-check.py
-  1. File filter (tr.mdx/tr.md by default)
+  1. File filter (.md/.mdx in global mode, tr.mdx/tr.md in plugin mode)
   2. Strip non-prose content
   3. Extract unique words
   4. hunspell -a: suggestions for misspelled words

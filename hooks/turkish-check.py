@@ -91,6 +91,15 @@ def is_identifier(word: str) -> bool:
     return bool(RE_IDENTIFIER.fullmatch(word))
 
 
+def is_whitelisted(word: str, whitelist: set[str]) -> bool:
+    wl = word.lower()
+    if wl in whitelist:
+        return True
+    return any(
+        wl.startswith(w) and len(wl) - len(w) <= 5 for w in whitelist if len(w) >= 5
+    )
+
+
 def load_word_set(path: str) -> set[str]:
     words = set()
     if not os.path.isfile(path):
@@ -249,11 +258,9 @@ def layer3_ambiguity(
     amb_skip: set[str],
     whitelist: set[str],
 ) -> str | None:
-    wl = word.lower()
-    if wl in whitelist or any(
-        wl.startswith(w) and len(wl) - len(w) <= 5 for w in whitelist if len(w) >= 5
-    ):
+    if is_whitelisted(word, whitelist):
         return None
+    wl = word.lower()
     if wl in amb_skip:
         return None
     if wl in amb_lookup:
@@ -335,7 +342,7 @@ def main():
         wl = word.lower()
         if wl in seen_lower or len(word) < 3:
             continue
-        if is_identifier(word) or wl in whitelist:
+        if is_identifier(word) or is_whitelisted(word, whitelist):
             continue
 
         correction = layer1_suggestion(word, suggestions)

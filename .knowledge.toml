@@ -1,0 +1,16 @@
+[project]
+name = "turkish-diacritics"
+type = "saas"
+
+[content]
+extensions = [".md"]
+
+[code]
+preset = "python"
+paths = ["hooks", "tests"]
+
+[graph]
+enabled = false
+
+[indexing]
+ignore_patterns = ["__pycache__", ".venv", "*.egg-info", ".git"]

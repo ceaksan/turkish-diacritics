@@ -13,6 +13,14 @@ LLMs (including Claude) drop Turkish diacritics when generating long-form conten
 
 This plugin adds a deterministic quality gate that runs after every file edit, providing instant feedback so Claude can self-correct.
 
+## Who needs this
+
+- **Turkish content creators using AI writing tools.** If you generate blog posts, documentation, or marketing copy with Claude, GPT, or Gemini in Turkish, diacritics errors are inevitable. This catches them before publication.
+- **Developers building Turkish-language applications.** Any pipeline that processes LLM-generated Turkish text needs a validation layer. This is that layer.
+- **Claude Code users writing in Turkish.** Install as a plugin, and every file edit is validated automatically. Zero manual intervention.
+
+The plugin has been validated against 200+ real blog posts across 2 production sites with zero false-positive timeouts.
+
 ## How It Works
 
 The plugin runs as a `PostToolUse` hook after every `Edit` or `Write` operation. If the edited file is a markdown file (`.md`, `.mdx` in global mode; `tr.mdx`, `tr.md` in plugin mode), it validates diacritics using a 4-layer detection system:

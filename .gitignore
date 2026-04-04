@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 .claude/
 notebooks/kernel-metadata.json
+*.log
+byt5_diacritics_experiment

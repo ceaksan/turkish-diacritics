@@ -1,12 +1,12 @@
 # turkish-diacritics
 
-Claude Code plugin and global hook that automatically validates Turkish diacritics in content files. Catches missing **ç, ğ, ı, ö, ş, ü** characters using hunspell-based multi-layer detection with zero token cost.
+Claude Code plugin and global hook that validates Turkish diacritics in content files. Catches missing **c, g, i, o, s, u** characters using hunspell-based multi-layer detection with zero token cost.
 
 ## Problem
 
 LLMs (including Claude) drop Turkish diacritics when generating long-form content:
 
-- `ç` becomes `c`, `ğ` becomes `g`, `ı` becomes `i`, `ö` becomes `o`, `ş` becomes `s`, `ü` becomes `u`
+- `c` becomes `c`, `g` becomes `g`, `i` becomes `i`, `o` becomes `o`, `s` becomes `s`, `u` becomes `u`
 - Prompt-level warnings ("use proper Turkish characters") are insufficient
 - Manual proofreading is slow, expensive, and error-prone
 - Errors are often caught only after publication
@@ -19,7 +19,7 @@ This plugin adds a deterministic quality gate that runs after every file edit, p
 - **Developers building Turkish-language applications.** Any pipeline that processes LLM-generated Turkish text needs a validation layer. This is that layer.
 - **Claude Code users writing in Turkish.** Install as a plugin, and every file edit is validated automatically. Zero manual intervention.
 
-The plugin has been validated against 200+ real blog posts across 2 production sites with zero false-positive timeouts.
+Validated against 134 real blog posts with 97% false positive reduction after dictionary tuning.
 
 ## How It Works
 
@@ -30,9 +30,9 @@ The plugin runs as a `PostToolUse` hook after every `Edit` or `Write` operation.
 | Layer 0 | Word dedup                            | -          | Reduces hunspell calls     |
 | Layer 1 | hunspell suggestion matching          | HIGH       | Most diacritics errors     |
 | Layer 2 | Brute-force variant generation        | HIGH       | Multi-character changes    |
-| Layer 3 | Ambiguity lookup table (2944 entries) | MEDIUM     | Valid ASCII but wrong form |
+| Layer 3 | Ambiguity lookup table (7,466 entries) | MEDIUM     | Valid ASCII but wrong form |
 
-**Performance**: 2 hunspell calls per file, ~5s average, zero timeouts on 200+ real posts.
+**Performance**: 2 hunspell calls per file, ~5s average, zero timeouts on 134 real posts.
 
 When errors are found, the plugin reports them via stderr (exit code 2), and Claude automatically corrects them.
 
@@ -56,7 +56,7 @@ sudo apt-get install hunspell hunspell-tr
 
 ```bash
 echo "ozellik" | hunspell -d tr_TR -a
-# Should show suggestions including "özellik"
+# Should show suggestions including "ozellik"
 ```
 
 If `tr_TR` dictionary is not found, download from [tdd-ai/hunspell-tr](https://github.com/tdd-ai/hunspell-tr) and place `tr_TR.dic` + `tr_TR.aff` in your hunspell dictionary path (`~/Library/Spelling/` on macOS, `/usr/share/hunspell/` on Linux).
@@ -132,9 +132,9 @@ The plugin ships with 4 curated dictionary files:
 | File                   | Entries | Purpose                                                             |
 | ---------------------- | ------- | ------------------------------------------------------------------- |
 | `tech.dic`             | ~360    | hunspell personal dictionary: brands, acronyms, Turkish inflections |
-| `whitelist.dic`        | ~530    | Words to skip in all detection layers                               |
-| `ambiguous-lookup.tsv` | 2944    | ASCII-to-diacritics mapping for Layer 3                             |
-| `ambiguous-skip.dic`   | ~160    | Genuinely dual-use words to skip in Layer 3                         |
+| `whitelist.dic`        | ~560    | Words to skip in all detection layers                               |
+| `ambiguous-lookup.tsv` | 7,466   | ASCII-to-diacritics mapping for Layer 3                             |
+| `ambiguous-skip.dic`   | ~240    | Context-dependent words to skip in Layer 3                          |
 
 ### Adding Custom Words
 
@@ -164,15 +164,27 @@ Turkish diacritics errors in src/content/posts/2026/01/01.my-post/tr.mdx (5 foun
 Fix these Turkish character errors using Edit tool.
 ```
 
+## Benchmarks
+
+The rule-based system was benchmarked against a fine-tuned ByT5-small (300M params) model on the same test set:
+
+| Metric | Rule-based | ByT5 |
+| --- | --- | --- |
+| Word accuracy (200 sample) | 100% | 96.5% |
+| False positives (50 sample) | 0 | 6 |
+| Speed | 0ms/word | 836ms/word |
+| Context disambiguation (7 pairs) | N/A | 2/7 |
+
+The rule-based system outperforms ML on word-level tasks. ML models may add value for sentence-level context disambiguation with larger training datasets and better architectures (token classification vs seq2seq). See `notebooks/` for experiment details.
+
 ## Data Sources
 
 The ambiguity lookup table was built from multiple sources:
 
+- **134 Turkish blog posts** from production content. Words with diacritics extracted, ASCII-folded, and validated with hunspell. Primary source for the 7,466-entry lookup table.
 - **[tdd-ai/hunspell-tr](https://github.com/tdd-ai/hunspell-tr)** - Turkish hunspell dictionary (75,910 words). Used for base spell checking and suggestion generation.
 - **[CanNuhlar/Turkce-Kelime-Listesi](https://github.com/CanNuhlar/Turkce-Kelime-Listesi)** - 76K Turkish word list. Used to extract ambiguous ASCII/diacritics word pairs.
 - **[erogluegemen/TDK-Dataset](https://github.com/erogluegemen/TDK-Dataset)** - TDK (Turkish Language Association) dataset with 92K words including `madde` and `madde_duz` columns. Used for cross-validation and ambiguous-skip curation.
-- **[merfarukyce/turkish-words](https://www.kaggle.com/datasets/merfarukyce/turkish-words)** (Kaggle) - 18K Turkish words with root/suffix analysis. Evaluated: 94% of entries are already caught by hunspell (Layers 1-2), remaining 5% overlap mostly with existing lookup. Marginal contribution (~293 new entries) did not justify merge.
-- **[google-research/turkish-morphology](https://github.com/AcademicDpt/turkish-morphology)** - 47K lexicon with morphological analyzer. Identified as potential future improvement for inflection gap coverage.
 
 ## Architecture
 
@@ -196,12 +208,21 @@ turkish-check.py
   10. stderr + exit 2 -> Claude feedback loop
 ```
 
+## Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `scripts/prepare_training_data.py` | Generate training pairs from Turkish content for ML experiments |
+| `scripts/compare_benchmark.py` | Rule-based vs ML model comparison benchmark |
+| `scripts/sentence_benchmark.py` | Sentence-level context disambiguation benchmark |
+
 ## Limitations
 
-1. **hunspell suggestion quality**: Some corrections are partial (e.g., `karsilasilan` gets partially corrected). This is a hunspell limitation.
-2. **Morphological gaps**: Not all inflected forms are in the lookup table. Simple suffix concatenation doesn't cover Turkish vowel harmony and stem changes.
-3. **Prefix whitelist**: Short whitelist words (3-4 chars) only do exact matching to avoid false negatives on unrelated Turkish words.
-4. **Source text typos**: The hook correctly flags source typos but the suggested correction may be wrong (e.g., `isiyorum` flagged but correction should be `istiyorum`, not `işiyorum`).
+1. **No context disambiguation**: The rule-based system cannot distinguish between "bas" (press) and "bas" (head) based on sentence context. Context-dependent words are skipped to avoid false positives.
+2. **hunspell suggestion quality**: Some corrections are partial (e.g., `karsilasilan` gets partially corrected). This is a hunspell limitation.
+3. **Morphological gaps**: Not all inflected forms are in the lookup table. Simple suffix concatenation doesn't cover Turkish vowel harmony and stem changes.
+4. **Prefix whitelist**: Short whitelist words (3-4 chars) only do exact matching to avoid false negatives on unrelated Turkish words.
+5. **Source text typos**: The hook correctly flags source typos but the suggested correction may be wrong (e.g., `isiyorum` flagged but correction should be `istiyorum`, not `isiyorum`).
 
 ## License
 
